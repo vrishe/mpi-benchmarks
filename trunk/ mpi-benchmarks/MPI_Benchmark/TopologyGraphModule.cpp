@@ -9,7 +9,7 @@ void AdjacencyDataConversion(const _GRAPH_EDGES __in &adj, vector<size_t> __out 
 
 int GenerateTopologyGraph(size_t __in n, _TOPOLOGY __in topology, _GRAPH_EDGES __out &edges) {
 	edges.resize(n);
-	long i, j;
+	long i;
 
 	switch (topology) {
 	case TOPOLOGY_CIRCLE: {
@@ -154,36 +154,38 @@ void TracePath(_GRAPH_EDGES __in edges, size_t __in from, size_t __in to, _GRAPH
 		path.push_back(0);
 		return;
 	}
+
 	size_t n = edges.size();
-	stack < size_t > s;
+	queue < size_t > s;
 	bool found = false;
-	vector < bool > visited(n);
+	vector < int > visited(n);
 	for (int i = 0; i < n; ++i)
-		visited[i] = false;
+		visited[i] = -1;
 
 	s.push(from);
-	visited[from] = true;
+	visited[from] = from;
 	while (!s.empty() && !found) {
-		bool step_back = true;
-		size_t cur = s.top();
-		path.push_back(cur);
+		size_t cur = s.front();
 		
 		for each (size_t node in edges.at(cur)) {
-			if (!visited.at(node)) {
-				step_back = false;
-				visited[node] = true;
+			if (visited.at(node) == -1) {
+				visited[node] = cur;
 				s.push(node);
 				if (node == to) {
 					found = true;
-					path.push_back(node);
 					break;
 				}
 			}
 		}
 
-		if (step_back) {
-			s.pop();
-			path.pop_back();
+		s.pop();
+	}
+
+	if (found) {
+		path.push_back(to);
+		while (to != from) {
+			to = visited[to];
+			path.insert(path.begin(), to);
 		}
 	}
 }
