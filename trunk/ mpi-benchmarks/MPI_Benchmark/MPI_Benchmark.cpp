@@ -1,6 +1,8 @@
 // MPI_Benchmark.cpp: определяет точку входа для консольного приложения.
 //
 
+// TEST_Commit
+
 int _tmain(int argc, _TCHAR* argv[])
 {
 	char message[20];
