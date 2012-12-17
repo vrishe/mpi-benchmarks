@@ -9,7 +9,7 @@ void AdjacencyDataConversion(const _GRAPH_EDGES __in &adj, vector<size_t> __out 
 
 int GenerateTopologyGraph(size_t __in n, _TOPOLOGY __in topology, _GRAPH_EDGES __out &edges) {
 	edges.resize(n);
-	long i;
+	size_t i;
 
 	switch (topology) {
 	case TOPOLOGY_CIRCLE: {
@@ -28,7 +28,7 @@ int GenerateTopologyGraph(size_t __in n, _TOPOLOGY __in topology, _GRAPH_EDGES _
 		if (n % 2 != 0)
 			return -1;
 
-		int height	= 2,
+		size_t height	= 2,
 			width	= n / 2;
 
 		// Finging optimal grid sides
@@ -40,10 +40,10 @@ int GenerateTopologyGraph(size_t __in n, _TOPOLOGY __in topology, _GRAPH_EDGES _
 		}
 
 		for (i = 0; i < height * width; ++i) {
-			if (i - 1 >= width * (i / width))	 edges[i].push_back(i - 1);
-			if (i - width >= 0)					 edges[i].push_back(i - width);
-			if (i + 1 < width * (i / width + 1)) edges[i].push_back(i + 1);	
-			if (i + width < n)					 edges[i].push_back(i + width);
+			if ((i - 1 >= width * (i / width)) && (i - 1 < i))		edges[i].push_back(i - 1);
+			if (i - width < i)										edges[i].push_back(i - width);
+			if ((i + 1 < width * (i / width + 1)) && (i + 1 > i))	edges[i].push_back(i + 1);	
+			if ((i + width < n) && (i + width > i))					edges[i].push_back(i + width);
 		}
 		break;
 	}
@@ -135,6 +135,8 @@ int GenerateTopologyGraph(size_t __in n, _TOPOLOGY __in topology, _GRAPH_EDGES _
 		break;
 	}
 	}
+
+	return 0;
 }
 
 void TraceAllGraphPathes(_GRAPH_EDGES __in edges, _GRAPH_PATHES __out &pathes) {
@@ -159,7 +161,7 @@ void TracePath(_GRAPH_EDGES __in edges, size_t __in from, size_t __in to, _GRAPH
 	queue < size_t > s;
 	bool found = false;
 	vector < int > visited(n);
-	for (int i = 0; i < n; ++i)
+	for (size_t i = 0; i < n; ++i)
 		visited[i] = -1;
 
 	s.push(from);
