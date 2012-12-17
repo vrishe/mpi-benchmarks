@@ -3,9 +3,6 @@
 
 #include "TopologyGraphModule.h"
 
-static _GRAPH_EDGES		_edges;
-static _GRAPH_PATHES	_pathes;
-
 #if (defined(UNICODE) || defined(_UNICODE))
 #define _tcout std::wcout
 #define _tcin  std::wcin
@@ -17,7 +14,9 @@ static _GRAPH_PATHES	_pathes;
 #define MODE_UNKNOWN      (0)
 #define MODE_OWN		 (-1)
 #define MODE_LIB		  (1)
-#define MODE_DEFAULT MODE_LIB
+
+#define TOPOLOGY_DEFAULT TOPOLOGY_UNKNOWN
+#define MODE_DEFAULT	 MODE_LIB
 
 _TOPOLOGY test_topology_arg(_TCHAR *arg, std::size_t n_chars)
 {
@@ -25,7 +24,7 @@ _TOPOLOGY test_topology_arg(_TCHAR *arg, std::size_t n_chars)
 	if (arg != NULL)
 	{
 		_TCHAR *parameter_id[] = { _T("topology"), _T("t") };
-		_TCHAR *topology_id[]   = { _T("grid"), _T("circle"), _T("hypercube") };
+		_TCHAR *topology_id[]  = { _T("grid"), _T("circle"), _T("hypercube") };
 
 		std::size_t param_id_len = 0;
 		bool error_state = *arg != '-' || (_tcsncmp(parameter_id[0], arg + 1, param_id_len = min(_tcslen(parameter_id[0]), n_chars - 2)) != 0 
@@ -60,15 +59,15 @@ int _tmain(int argc, _TCHAR* argv[])
 	_TOPOLOGY topology = TOPOLOGY_UNKNOWN;
 	int       mode     = MODE_DEFAULT;
 
-	for (std::size_t i = 1, max_i = static_cast<std::size_t>(argc); i < max_i; ++i)
+	for (size_t i = 1, max_i = static_cast<size_t>(argc); i < max_i; ++i)
 	{
-		std::size_t argv_str_len = _tcslen(argv[i]);
+		size_t argv_str_len = _tcslen(argv[i]);
 		for (std::size_t j = 0; j < argv_str_len; ++j) argv[i][j] = _totlower(argv[i][j]);
 
 		if (topology == TOPOLOGY_UNKNOWN) { topology = test_topology_arg(argv[i], argv_str_len); continue; }
 		if (mode     == MODE_DEFAULT)     { mode     = test_mode_arg(argv[i], argv_str_len);     continue; }
 
-		_tcout << _T("Unknown parameter: ") << argv[i] << std::endl;
+		_tcout << _T("Unknown parameter: ") << argv[i] << endl;
 	}
 	if (topology == TOPOLOGY_UNKNOWN || mode == MODE_UNKNOWN)
 	{
@@ -76,19 +75,63 @@ int _tmain(int argc, _TCHAR* argv[])
 		return -1;
 	}
 
-	MPI_Init(&argc, &argv);
+	MPI_Datatype error_code = 0;
+	if ((error_code = MPI_Init(&argc, &argv)) != MPI_SUCCESS) // MPI Initialization is here
+	{
+		_tcout << _T("There was a problem with MPI initialization!") << endl;
+		return error_code;
+	}
 
+	// Obtaining of necessary self-descriptive data
 	int size = 0;
+	int	rank = -1;
+
 	MPI_Comm_size(MPI_COMM_WORLD, &size); 
+	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-	GenerateTopologyGraph(size, topology, _edges);
+	// Obtaining of necessary environment-decriptive data
+	_GRAPH_EDGES	_edges;
+	_GRAPH_PATHES	_pathes;
 
+	if ((error_code = GenerateTopologyGraph(size, topology, _edges)) != 0)
+	{
+		_tcout << _T("Failed to generate topology graph on such a number of nodes!") << endl;
+		return error_code;
+	}
+
+	// Program flow fork
 	switch (mode)
 	{
-	case -1:	// .... self - written message passing framework test
+	case -1:	
+		{
+			TraceAllGraphPathes(_edges, _pathes);
+			// Self - written message passing framework tests or callback setup operations are here
+		}
 		break;
 
-	case 1:		// MPI collective message passing framework test
+	case 1:		
+		{
+			if (rank == 0)
+			{
+				MPI_Comm mpi_comm_new; 
+
+				vector<std::size_t> indices, edges;
+				AdjacencyDataConversion(_edges, indices, edges);
+				if ((error_code = MPI_Graph_create(
+					MPI_COMM_WORLD, 
+					_edges.size(), 
+					reinterpret_cast<MPI_Datatype*>(indices.begin()._Ptr), 
+					reinterpret_cast<MPI_Datatype*>(edges.begin()._Ptr), 
+					true, 
+					&mpi_comm_new
+				)) != MPI_SUCCESS) {
+					_tcout << _T("Failed to create topology communicator with the data provided!") << endl;
+					return error_code;
+				}
+				// MPI collective message passing framework tests or callback setup operations are here
+				MPI_Comm_free(&mpi_comm_new);
+			}
+		}
 		break;
 	}
 
