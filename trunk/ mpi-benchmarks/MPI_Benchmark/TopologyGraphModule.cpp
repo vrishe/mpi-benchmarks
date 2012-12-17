@@ -1,7 +1,5 @@
 #include "TopologyGraphModule.h"
 
-#define __foreach(it, i, c) for(it i = c.begin(), _end = c.end(); i != _end; i++)
-
 void AdjacencyDataConversion(const _GRAPH_EDGES __in &adj, vector<size_t> __out &index, vector<size_t> __out &edges) {
 	for (std::size_t i = 0, max_i = adj.size(); i < max_i; ++i) {
 		index.push_back(i == 0 ? adj[i].size() : index.back() + adj[i].size());
@@ -9,14 +7,14 @@ void AdjacencyDataConversion(const _GRAPH_EDGES __in &adj, vector<size_t> __out 
 	}
 }
 
-int GenerateTopologyGraph(size_t n, _TOPOLOGY topology, _GRAPH_EDGES &edges) {
+int GenerateTopologyGraph(size_t __in n, _TOPOLOGY __in topology, _GRAPH_EDGES __out &edges) {
 	edges.resize(n);
-	size_t i, j;
+	long i, j;
 
 	switch (topology) {
 	case TOPOLOGY_CIRCLE: {
 		edges[0].push_back(1);
-		edges[0].push_back(n);
+		edges[0].push_back(n - 1);
 		for (i = 1; i < n - 1; ++i) {
 			edges[i].push_back(i - 1);
 			edges[i].push_back(i + 1);
@@ -42,10 +40,10 @@ int GenerateTopologyGraph(size_t n, _TOPOLOGY topology, _GRAPH_EDGES &edges) {
 		}
 
 		for (i = 0; i < height * width; ++i) {
-			if (i - 1 > 0)		edges[i].push_back(i - 1);
-			if (i - width > 0)	edges[i].push_back(i - width);
-			if (i + 1 < n)		edges[i].push_back(i + 1);	
-			if (i + width < n)	edges[i].push_back(i + width);
+			if (i - 1 >= width * (i / width))	 edges[i].push_back(i - 1);
+			if (i - width >= 0)					 edges[i].push_back(i - width);
+			if (i + 1 < width * (i / width + 1)) edges[i].push_back(i + 1);	
+			if (i + width < n)					 edges[i].push_back(i + width);
 		}
 		break;
 	}
@@ -139,13 +137,53 @@ int GenerateTopologyGraph(size_t n, _TOPOLOGY topology, _GRAPH_EDGES &edges) {
 	}
 }
 
-void TraceAllGraphPathes(_GRAPH_EDGES edges, _GRAPH_PATHES &pathes) {
+void TraceAllGraphPathes(_GRAPH_EDGES __in edges, _GRAPH_PATHES __out &pathes) {
 	size_t n = edges.size();
 	pathes.resize(n);
 
 	for (size_t i = 0; i < n; ++i) {
 		pathes[i].resize(n);
 		for (size_t j = 0; j < n; ++j)
-			TracePath(i, j, pathes[i][j]);
+			TracePath(edges, i, j, pathes[i][j]);
+	}
+}
+
+void TracePath(_GRAPH_EDGES __in edges, size_t __in from, size_t __in to, _GRAPH_PATH __out &path) {
+	if (from == to) {
+		path.push_back(0);
+		path.push_back(0);
+		return;
+	}
+	size_t n = edges.size();
+	stack < size_t > s;
+	bool found = false;
+	vector < bool > visited(n);
+	for (int i = 0; i < n; ++i)
+		visited[i] = false;
+
+	s.push(from);
+	visited[from] = true;
+	while (!s.empty() && !found) {
+		bool step_back = true;
+		size_t cur = s.top();
+		path.push_back(cur);
+		
+		for each (size_t node in edges.at(cur)) {
+			if (!visited.at(node)) {
+				step_back = false;
+				visited[node] = true;
+				s.push(node);
+				if (node == to) {
+					found = true;
+					path.push_back(node);
+					break;
+				}
+			}
+		}
+
+		if (step_back) {
+			s.pop();
+			path.pop_back();
+		}
 	}
 }

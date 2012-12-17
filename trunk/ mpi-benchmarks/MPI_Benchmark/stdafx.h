@@ -13,6 +13,7 @@
 #include <tchar.h>
 
 #include <vector>
+#include <stack>
 using namespace std;
 
 // TODO: Установите здесь ссылки на дополнительные заголовки, требующиеся для программы

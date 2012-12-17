@@ -12,7 +12,8 @@ int _tmain(int argc, _TCHAR* argv[])
 	MPI_Status status;
 
 	MPI_Init(&argc, &argv);
-	MPI_Comm_size(MPI_COMM_WORLD, &size);
+	GenerateTopologyGraph(16, TOPOLOGY_HYPERCUBE, _edges);
+	/*MPI_Comm_size(MPI_COMM_WORLD, &size);
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
 	if (rank == 0)
@@ -25,7 +26,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		MPI_Recv(message, 20, MPI_CHAR, 0, type, MPI_COMM_WORLD, &status);
 	}
 
-	printf("Message from process = %d : %.14s\n", rank, message);
+	printf("Message from process = %d : %.14s\n", rank, message);*/
 	return MPI_Finalize();
 }
 
