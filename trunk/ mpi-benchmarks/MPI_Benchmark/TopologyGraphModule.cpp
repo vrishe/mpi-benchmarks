@@ -1,22 +1,20 @@
 #include "TopologyGraphModule.h"
 
-/*
-* Generates all links between graph nodes
-*
-* edges		- out edges structure
-* n			- number of nodes
-* topology	- topology to use
-*
-* returns:
-* -1	- wgorng nodes number for such topology
-*  0	- OK
-*/
-int generateTopologyGraph(_GRAPH_EDGES &edges, size_t n, _TOPOLOGY topology) {
+#define __foreach(it, i, c) for(it i = c.begin(), _end = c.end(); i != _end; i++)
+
+void AdjacencyDataConversion(const _GRAPH_EDGES __in &adj, vector<size_t> __out &index, vector<size_t> __out &edges) {
+	for (std::size_t i = 0, max_i = adj.size(); i < max_i; ++i) {
+		index.push_back(i == 0 ? adj[i].size() : index.back() + adj[i].size());
+		edges.insert(edges.end(), adj[i].begin(), adj[i].end());
+	}
+}
+
+int GenerateTopologyGraph(size_t n, _TOPOLOGY topology, _GRAPH_EDGES &edges) {
 	edges.resize(n);
-	int i, j;
+	size_t i, j;
 
 	switch (topology) {
-	case CIRCLE:
+	case TOPOLOGY_CIRCLE: {
 		edges[0].push_back(1);
 		edges[0].push_back(n);
 		for (i = 1; i < n - 1; ++i) {
@@ -26,8 +24,9 @@ int generateTopologyGraph(_GRAPH_EDGES &edges, size_t n, _TOPOLOGY topology) {
 		edges[n - 1].push_back(n - 2);
 		edges[n - 1].push_back(0);
 		break;
+	}
 
-	case GRID:
+	case TOPOLOGY_GRID: {
 		if (n % 2 != 0)
 			return -1;
 
@@ -49,8 +48,9 @@ int generateTopologyGraph(_GRAPH_EDGES &edges, size_t n, _TOPOLOGY topology) {
 			if (i + width < n)	edges[i].push_back(i + width);
 		}
 		break;
+	}
 
-	case HYPERCUBE:
+	case TOPOLOGY_HYPERCUBE: {
 		if (n != 16)
 			return -1;
 
@@ -135,5 +135,17 @@ int generateTopologyGraph(_GRAPH_EDGES &edges, size_t n, _TOPOLOGY topology) {
 		edges[15].push_back(7);
 
 		break;
+	}
+	}
+}
+
+void TraceAllGraphPathes(_GRAPH_EDGES edges, _GRAPH_PATHES &pathes) {
+	size_t n = edges.size();
+	pathes.resize(n);
+
+	for (size_t i = 0; i < n; ++i) {
+		pathes[i].resize(n);
+		for (size_t j = 0; j < n; ++j)
+			TracePath(i, j, pathes[i][j]);
 	}
 }
