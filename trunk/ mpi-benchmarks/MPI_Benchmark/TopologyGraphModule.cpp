@@ -139,17 +139,6 @@ int GenerateTopologyGraph(size_t __in n, _TOPOLOGY __in topology, _GRAPH_EDGES _
 	return 0;
 }
 
-void TraceAllGraphPathes(_GRAPH_EDGES __in edges, _GRAPH_PATHES __out &pathes) {
-	size_t n = edges.size();
-	pathes.resize(n);
-
-	for (size_t i = 0; i < n; ++i) {
-		pathes[i].resize(n);
-		for (size_t j = 0; j < n; ++j)
-			TracePath(edges, i, j, pathes[i][j]);
-	}
-}
-
 void TracePath(_GRAPH_EDGES __in edges, size_t __in from, size_t __in to, _GRAPH_PATH __out &path) {
 	if (from == to) {
 		path.push_back(0);
@@ -189,5 +178,16 @@ void TracePath(_GRAPH_EDGES __in edges, size_t __in from, size_t __in to, _GRAPH
 			to = visited[to];
 			path.insert(path.begin(), to);
 		}
+	}
+}
+
+void TraceAllGraphPathes(_GRAPH_EDGES __in edges, _GRAPH_PATHES __out &pathes) {
+	size_t n = edges.size();
+	pathes.resize(n);
+
+	for (size_t i = 0; i < n; ++i) {
+		pathes[i].resize(n);
+		for (size_t j = 0; j < n; ++j)
+			TracePath(edges, i, j, pathes[i][j]);
 	}
 }
