@@ -2,7 +2,8 @@
 //
 #include "TopologyGraphModule.h"
 
-static _GRAPH_EDGES _edges;
+static _GRAPH_EDGES		_edges;
+static _GRAPH_PATHES	_pathes;
 
 int _tmain(int argc, _TCHAR* argv[])
 {
