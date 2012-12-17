@@ -13,7 +13,7 @@
 
 #include <iostream>
 #include <vector>
-#include <stack>
+#include <queue>
 using namespace std;
 
 // TODO: Установите здесь ссылки на дополнительные заголовки, требующиеся для программы
