@@ -12,5 +12,8 @@
 
 #include <tchar.h>
 
+#include <vector>
+using namespace std;
+
 // TODO: Установите здесь ссылки на дополнительные заголовки, требующиеся для программы
 #include "mpi.h"
