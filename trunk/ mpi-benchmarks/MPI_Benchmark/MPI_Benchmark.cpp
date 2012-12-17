@@ -2,6 +2,10 @@
 //
 
 #include "TopologyGraphModule.h"
+#include "TestModule.h"
+
+_GRAPH_EDGES	_edges;
+_GRAPH_PATHES	_pathes;
 
 #if (defined(UNICODE) || defined(_UNICODE))
 #define _tcout std::wcout
@@ -54,6 +58,8 @@ int test_mode_arg(_TCHAR *arg, std::size_t n_chars)
 	return mode;
 }
 
+typedef int (__stdcall *INTERCHANGER) (void *sendbuf, int sendcount, MPI_Datatype sendtype, void *recvbuf, int recvcount, MPI_Datatype recvtype, MPI_Comm comm);
+
 int _tmain(int argc, _TCHAR* argv[])
 {
 	_TOPOLOGY topology = TOPOLOGY_UNKNOWN;
@@ -90,22 +96,20 @@ int _tmain(int argc, _TCHAR* argv[])
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
 	// Obtaining of necessary environment-decriptive data
-	_GRAPH_EDGES	_edges;
-	_GRAPH_PATHES	_pathes;
-
 	if ((error_code = GenerateTopologyGraph(size, topology, _edges)) != 0)
 	{
 		_tcout << _T("Failed to generate topology graph on such a number of nodes!") << endl;
 		return error_code;
 	}
 
+	INTERCHANGER FNC_AllToAll = NULL;
 	// Program flow fork
 	switch (mode)
 	{
 	case -1:	
 		{
 			TraceAllGraphPathes(_edges, _pathes);
-			// Self - written message passing framework tests or callback setup operations are here
+			FNC_AllToAll = AllToAll;
 		}
 		break;
 
@@ -114,7 +118,6 @@ int _tmain(int argc, _TCHAR* argv[])
 			if (rank == 0)
 			{
 				MPI_Comm mpi_comm_new; 
-
 				vector<std::size_t> indices, edges;
 				AdjacencyDataConversion(_edges, indices, edges);
 				if ((error_code = MPI_Graph_create(
@@ -128,11 +131,19 @@ int _tmain(int argc, _TCHAR* argv[])
 					_tcout << _T("Failed to create topology communicator with the data provided!") << endl;
 					return error_code;
 				}
-				// MPI collective message passing framework tests or callback setup operations are here
-				MPI_Comm_free(&mpi_comm_new);
 			}
+			FNC_AllToAll = MPI_Alltoall;
 		}
 		break;
+	}
+
+	if (FNC_AllToAll != NULL)
+	{	
+		unsigned char *local_buffer = new unsigned char[size];
+
+		// FNC_AllToAll will be called here!
+
+		delete[] local_buffer;
 	}
 
 	return MPI_Finalize();
