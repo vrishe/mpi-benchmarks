@@ -1,7 +1,8 @@
 // MPI_Benchmark.cpp: определяет точку входа для консольного приложения.
 //
+#include "TopologyGraphModule.h"
 
-// TEST_Commit
+static _GRAPH_EDGES _edges;
 
 int _tmain(int argc, _TCHAR* argv[])
 {
