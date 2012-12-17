@@ -1,6 +1,7 @@
 #pragma once
 
 enum _TOPOLOGY {
+	TOPOLOGY_UNKNOWN,
 	TOPOLOGY_CIRCLE,
 	TOPOLOGY_GRID,
 	TOPOLOGY_HYPERCUBE
@@ -15,9 +16,9 @@ void AdjacencyDataConversion(const _GRAPH_EDGES __in &adj, vector<size_t> __out 
 /*
 * Generates all links between graph nodes
 *
-* edges		- out edges structure
 * n			- number of nodes
 * topology	- topology to use
+* edges		- edges structure
 *
 * returns:
 * -1	- wgorng nodes number for such topology
@@ -27,4 +28,13 @@ int GenerateTopologyGraph(size_t __in n, _TOPOLOGY __in topology, _GRAPH_EDGES _
 
 void TraceAllGraphPathes(_GRAPH_EDGES __in edges, _GRAPH_PATHES __out &pathes);
 
-void TracePath(size_t __in from, size_t __in to, _GRAPH_PATH __out &path);
+/*
+* Traces path between two nodes (including those nodes into the path)
+*
+* edges	- edges structure
+* from	- start node
+* to	- finish node
+* path	- resulting path
+* 
+*/
+void TracePath(_GRAPH_EDGES __in edges, size_t __in from, size_t __in to, _GRAPH_PATH __out &path);
