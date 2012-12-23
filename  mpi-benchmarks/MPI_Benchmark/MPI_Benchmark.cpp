@@ -62,88 +62,104 @@ typedef int (__stdcall *INTERCHANGER) (void *sendbuf, int sendcount, MPI_Datatyp
 
 int _tmain(int argc, _TCHAR* argv[])
 {
-	_TOPOLOGY topology = TOPOLOGY_UNKNOWN;
-	int       mode     = MODE_DEFAULT;
+	int size = 0,
+		rank = -1;
 
-	for (size_t i = 1, max_i = static_cast<size_t>(argc); i < max_i; ++i)
-	{
-		size_t argv_str_len = _tcslen(argv[i]);
-		for (std::size_t j = 0; j < argv_str_len; ++j) argv[i][j] = _totlower(argv[i][j]);
+	try {
+		_TOPOLOGY topology = TOPOLOGY_UNKNOWN;
+		int       mode     = MODE_DEFAULT;
 
-		if (topology == TOPOLOGY_UNKNOWN) { topology = test_topology_arg(argv[i], argv_str_len); continue; }
-		if (mode     == MODE_DEFAULT)     { mode     = test_mode_arg(argv[i], argv_str_len);     continue; }
-
-		_tcout << _T("Unknown parameter: ") << argv[i] << endl;
-	}
-	if (topology == TOPOLOGY_UNKNOWN || mode == MODE_UNKNOWN)
-	{
-		_tcout << _T("Program parameters are wrong!");
-		return -1;
-	}
-
-	MPI_Datatype error_code = 0;
-	if ((error_code = MPI_Init(&argc, &argv)) != MPI_SUCCESS) // MPI Initialization is here
-	{
-		_tcout << _T("There was a problem with MPI initialization!") << endl;
-		return error_code;
-	}
-
-	// Obtaining of necessary self-descriptive data
-	int size = 0;
-	int	rank = -1;
-
-	MPI_Comm_size(MPI_COMM_WORLD, &size); 
-	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-
-	// Obtaining of necessary environment-decriptive data
-	if ((error_code = GenerateTopologyGraph(size, topology, _edges)) != 0)
-	{
-		_tcout << _T("Failed to generate topology graph on such a number of nodes!") << endl;
-		return error_code;
-	}
-
-	INTERCHANGER FNC_AllToAll = NULL;
-	// Program flow fork
-	switch (mode)
-	{
-	case -1:	
+		for (size_t i = 1, max_i = static_cast<size_t>(argc); i < max_i; ++i)
 		{
-			TraceAllGraphPathes(_edges, _paths);
-			FNC_AllToAll = OWN_Alltoall;
+			size_t argv_str_len = _tcslen(argv[i]);
+			for (std::size_t j = 0; j < argv_str_len; ++j) argv[i][j] = _totlower(argv[i][j]);
+
+			if (topology == TOPOLOGY_UNKNOWN) { topology = test_topology_arg(argv[i], argv_str_len); continue; }
+			if (mode     == MODE_DEFAULT)     { mode     = test_mode_arg(argv[i], argv_str_len);     continue; }
+
+			throw std::string("Unknown parameter: ").append(argv[i]);
 		}
-		break;
+		if (topology == TOPOLOGY_UNKNOWN || mode == MODE_UNKNOWN) {	throw std::string("Program parameters are wrong!");	}
 
-	case 1:		
+		MPI_Datatype error_code = 0;
+		if ((error_code = MPI_Init(&argc, &argv)) != MPI_SUCCESS) { throw std::string("There was a problem with MPI initialization!"); }
+
+		// Obtaining of necessary self-descriptive data
+		MPI_Comm_size(MPI_COMM_WORLD, &size); 
+		MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+		// Obtaining of necessary environment-decriptive data
+		if ((error_code = GenerateTopologyGraph(size, topology, _edges)) != 0) { throw std::string("Failed to generate topology graph on such a number of nodes!"); }
+
+		//// TODO: AND THIS!
+		//for (std::size_t i = 0, max_i = _edges.size(); i < max_i; ++i)
+		//{
+		//	_tcout.width(2); _tcout << i << _T(": ");
+		//	for (std::size_t j = 0, max_j = _edges[i].size(); j < max_j; ++j)
+		//	{
+		//		if (j > 0) _tcout << _T(", ");
+		//		_tcout.width(2); _tcout << _edges[i][j];
+		//	}
+		//	_tcout << std::endl;
+		//}
+		//return MPI_Finalize();
+
+		MPI_Comm	 MPI_Comm_new = NULL; 
+		INTERCHANGER FNC_AllToAll = NULL;
+		// Program flow fork
+		switch (mode)
 		{
-			if (rank == 0)
+		case -1:	
 			{
-				MPI_Comm mpi_comm_new; 
+				FNC_AllToAll = OWN_Alltoall;
+				MPI_Comm_new = MPI_COMM_WORLD;
+
+				TraceAllGraphPathes(_edges, _paths);
+
+				MPI_Barrier(MPI_COMM_WORLD);
+			}
+			break;
+
+		case 1:		
+			{
+				FNC_AllToAll = MPI_Alltoall;
+
 				vector<std::size_t> indices, edges;
 				AdjacencyDataConversion(_edges, indices, edges);
 				if ((error_code = MPI_Graph_create(
 					MPI_COMM_WORLD, 
 					_edges.size(), 
-					reinterpret_cast<MPI_Datatype*>(indices.begin()._Ptr), 
-					reinterpret_cast<MPI_Datatype*>(edges.begin()._Ptr), 
+					reinterpret_cast<int*>(indices.begin()._Ptr), 
+					reinterpret_cast<int*>(edges.begin()._Ptr), 
 					true, 
-					&mpi_comm_new
-				)) != MPI_SUCCESS) {
-					_tcout << _T("Failed to create topology communicator with the data provided!") << endl;
-					return error_code;
-				}
+					&MPI_Comm_new
+				)) != MPI_SUCCESS) { throw std::string("Failed to create topology communicator with the data provided!"); }
 			}
-			FNC_AllToAll = MPI_Alltoall;
+			break;
 		}
-		break;
+
+		if (FNC_AllToAll != NULL)
+		{	
+			//unsigned char *local_buffer = new unsigned char[size];
+			char send_buffer[] = "Hello, World!";
+			char recv_buffer[_countof(send_buffer)] = { 0x00 };
+
+			//memset(recv_buffer, 0x00, _countof(recv_buffer));
+
+			if ((error_code =FNC_AllToAll(send_buffer, 1, MPI_CHAR, recv_buffer, 1, MPI_CHAR, MPI_Comm_new)) != MPI_SUCCESS)
+			{
+				throw std::string("Failed to complete All-to-All transmission!");
+			}
+
+			//delete[] local_buffer;
+
+			_tcout << _T("Process #") << rank << _T(": ") << recv_buffer << std::endl;
+		}
 	}
-
-	if (FNC_AllToAll != NULL)
-	{	
-		unsigned char *local_buffer = new unsigned char[size];
-
-		// FNC_AllToAll will be called here!
-
-		delete[] local_buffer;
+	catch(std::string error_message)
+	{
+		if (rank != -1) { _tcout << _T("Process #") << rank << _T(": "); }
+		_tcout << error_message.begin()._Ptr << std::endl;
 	}
 
 	return MPI_Finalize();
