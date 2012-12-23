@@ -13,6 +13,9 @@ int GenerateTopologyGraph(size_t __in n, _TOPOLOGY __in topology, _GRAPH_EDGES _
 
 	switch (topology) {
 	case TOPOLOGY_CIRCLE: {
+		if (n < 2)
+			return -1;
+
 		edges[0].push_back(1);
 		edges[0].push_back(n - 1);
 		for (i = 1; i < n - 1; ++i) {
@@ -25,7 +28,7 @@ int GenerateTopologyGraph(size_t __in n, _TOPOLOGY __in topology, _GRAPH_EDGES _
 	}
 
 	case TOPOLOGY_GRID: {
-		if (n % 2 != 0)
+		if (n < 5 && n % 2 != 0)
 			return -1;
 
 		size_t height	= 2,
