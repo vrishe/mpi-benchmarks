@@ -2,7 +2,7 @@
 //
 
 #include "TopologyGraphModule.h"
-#include "TestModule.h"
+#include "MPIMassOperationEmulator.h"
 
 _GRAPH_EDGES	_edges;
 _GRAPH_PATHES	_pathes;
@@ -109,7 +109,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	case -1:	
 		{
 			TraceAllGraphPathes(_edges, _pathes);
-			FNC_AllToAll = AllToAll;
+			FNC_AllToAll = OWN_Alltoall;
 		}
 		break;
 
