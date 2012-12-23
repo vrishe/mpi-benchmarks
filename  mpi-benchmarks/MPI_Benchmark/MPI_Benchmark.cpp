@@ -124,7 +124,7 @@ int _tmain(int argc, _TCHAR* argv[])
 			{
 				FNC_AllToAll = MPI_Alltoall;
 
-				vector<std::size_t> indices, edges;
+				vector<int> indices, edges;
 				AdjacencyDataConversion(_edges, indices, edges);
 				if ((error_code = MPI_Graph_create(
 					MPI_COMM_WORLD, 

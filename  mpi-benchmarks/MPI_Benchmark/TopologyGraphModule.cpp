@@ -1,15 +1,15 @@
 #include "TopologyGraphModule.h"
 
-void AdjacencyDataConversion(const _GRAPH_EDGES __in &adj, vector<size_t> __out &index, vector<size_t> __out &edges) {
-	for (std::size_t i = 0, max_i = adj.size(); i < max_i; ++i) {
+void AdjacencyDataConversion(const _GRAPH_EDGES __in &adj, vector<int> __out &index, vector<int> __out &edges) {
+	for (int i = 0, max_i = adj.size(); i < max_i; ++i) {
 		index.push_back(i == 0 ? adj[i].size() : index.back() + adj[i].size());
 		edges.insert(edges.end(), adj[i].begin(), adj[i].end());
 	}
 }
 
-int GenerateTopologyGraph(size_t __in n, _TOPOLOGY __in topology, _GRAPH_EDGES __out &edges) {
+int GenerateTopologyGraph(int __in n, _TOPOLOGY __in topology, _GRAPH_EDGES __out &edges) {
 	edges.resize(n);
-	size_t i;
+	int i;
 
 	switch (topology) {
 	case TOPOLOGY_CIRCLE: {
@@ -31,7 +31,7 @@ int GenerateTopologyGraph(size_t __in n, _TOPOLOGY __in topology, _GRAPH_EDGES _
 		if (n < 5 && n % 2 != 0)
 			return -1;
 
-		size_t height	= 2,
+		int height	= 2,
 			width	= n / 2;
 
 		// Finging optimal grid sides
@@ -142,26 +142,26 @@ int GenerateTopologyGraph(size_t __in n, _TOPOLOGY __in topology, _GRAPH_EDGES _
 	return 0;
 }
 
-void TracePath(_GRAPH_EDGES __in edges, size_t __in from, size_t __in to, _GRAPH_PATH __out &path) {
+void TracePath(_GRAPH_EDGES __in edges, int __in from, int __in to, _GRAPH_PATH __out &path) {
 	if (from == to) {
 		path.push_back(0);
 		path.push_back(0);
 		return;
 	}
 
-	size_t n = edges.size();
-	queue < size_t > s;
+	int n = edges.size();
+	queue < int > s;
 	bool found = false;
 	vector < int > visited(n);
-	for (size_t i = 0; i < n; ++i)
+	for (int i = 0; i < n; ++i)
 		visited[i] = -1;
 
 	s.push(from);
 	visited[from] = from;
 	while (!s.empty() && !found) {
-		size_t cur = s.front();
+		int cur = s.front();
 		
-		for each (size_t node in edges.at(cur)) {
+		for each (int node in edges.at(cur)) {
 			if (visited.at(node) == -1) {
 				visited[node] = cur;
 				s.push(node);
@@ -185,12 +185,12 @@ void TracePath(_GRAPH_EDGES __in edges, size_t __in from, size_t __in to, _GRAPH
 }
 
 void TraceAllGraphPathes(_GRAPH_EDGES __in edges, _GRAPH_PATHES __out &pathes) {
-	size_t n = edges.size();
+	int n = edges.size();
 	pathes.resize(n);
 
-	for (size_t i = 0; i < n; ++i) {
+	for (int i = 0; i < n; ++i) {
 		pathes[i].resize(n);
-		for (size_t j = 0; j < n; ++j)
+		for (int j = 0; j < n; ++j)
 			TracePath(edges, i, j, pathes[i][j]);
 	}
 }
