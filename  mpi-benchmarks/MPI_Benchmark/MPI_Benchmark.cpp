@@ -5,7 +5,7 @@
 #include "MPIMassOperationEmulator.h"
 
 _GRAPH_EDGES	_edges;
-_GRAPH_PATHES	_pathes;
+_GRAPH_PATHES	_paths;
 
 #if (defined(UNICODE) || defined(_UNICODE))
 #define _tcout std::wcout
@@ -108,7 +108,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	{
 	case -1:	
 		{
-			TraceAllGraphPathes(_edges, _pathes);
+			TraceAllGraphPathes(_edges, _paths);
 			FNC_AllToAll = OWN_Alltoall;
 		}
 		break;
