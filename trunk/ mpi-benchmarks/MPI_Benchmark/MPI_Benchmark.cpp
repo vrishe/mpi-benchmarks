@@ -91,19 +91,6 @@ int _tmain(int argc, _TCHAR* argv[])
 		// Obtaining of necessary environment-decriptive data
 		if ((error_code = GenerateTopologyGraph(size, topology, _edges)) != 0) { throw std::string("Failed to generate topology graph on such a number of nodes!"); }
 
-		//// TODO: AND THIS!
-		//for (std::size_t i = 0, max_i = _edges.size(); i < max_i; ++i)
-		//{
-		//	_tcout.width(2); _tcout << i << _T(": ");
-		//	for (std::size_t j = 0, max_j = _edges[i].size(); j < max_j; ++j)
-		//	{
-		//		if (j > 0) _tcout << _T(", ");
-		//		_tcout.width(2); _tcout << _edges[i][j];
-		//	}
-		//	_tcout << std::endl;
-		//}
-		//return MPI_Finalize();
-
 		MPI_Comm	 MPI_Comm_new = NULL; 
 		INTERCHANGER FNC_AllToAll = NULL;
 		// Program flow fork
@@ -144,7 +131,7 @@ int _tmain(int argc, _TCHAR* argv[])
 				*recv_buffer = new int[size];
 
 			std::fill_n(send_buffer, size, rank);
-			memset(recv_buffer, 0x00, size * sizeof(int));
+			std::fill_n(recv_buffer, size, 0x00);
 
 			if ((error_code = FNC_AllToAll(send_buffer, 1, MPI_INT, recv_buffer, 1, MPI_INT, MPI_Comm_new)) != MPI_SUCCESS)
 			{

@@ -83,6 +83,9 @@ inline static void alacv_get_nodes(std::vector<int> &node_set, bool ready)
 
 // End of internal service code
 // =======================================================================================================================================================================================================================
+typedef unsigned char byte_t;
+typedef std::vector<byte_t> byte_vector;
+
 #define ROOT_RANK 0
 int __stdcall OWN_Alltoall(void* sendbuf, int sendcount, MPI_Datatype sendtype, void* recvbuf, int recvcount, MPI_Datatype recvtype, MPI_Comm comm) {
 	int ret_result = 0;
@@ -102,24 +105,27 @@ int __stdcall OWN_Alltoall(void* sendbuf, int sendcount, MPI_Datatype sendtype, 
 	alacv_init(size);
 
 	rsize_t send_size = sendcount * sendtype_size;
-	std::vector<unsigned char> pack_buffer(send_size + (sizeof(int) << 1), 0x00);
+	byte_vector pack_buffer(send_size + (sizeof(int) << 1), 0x00);
 	pack_buffer.shrink_to_fit();
 
-	int dst_offset = 0;
 	for (int i = 0; i < size; ++i) 
 	{
-		if (i == rank) continue; 
+		if (i == rank)
+		{
+			if (memcpy_s(reinterpret_cast<byte_t*>(recvbuf) + rank * send_size, send_size, reinterpret_cast<byte_t*>(sendbuf) + rank * send_size, send_size) != 0) return OWN_ERROR_INTERNAL;
+			continue; 
+		}
 
 		int pack_position = 0;
-		MPI_Pack(&i, 1, MPI_INT, &pack_buffer.front(), pack_buffer.size(), &pack_position, comm); dst_offset = pack_position;
+		MPI_Pack(&i, 1, MPI_INT, &pack_buffer.front(), pack_buffer.size(), &pack_position, comm);
 		MPI_Pack(&rank, 1, MPI_INT, &pack_buffer.front(), pack_buffer.size(), &pack_position, comm);
-		MPI_Pack(reinterpret_cast<unsigned char*>(sendbuf) + i * send_size, sendcount, sendtype, &pack_buffer.front(), pack_buffer.size(), &pack_position, comm);
+		MPI_Pack(reinterpret_cast<byte_t*>(sendbuf) + i * send_size, sendcount, sendtype, &pack_buffer.front(), pack_buffer.size(), &pack_position, comm);
 
 		if ((ret_result =
-			MPI_Send(&pack_buffer.front(), pack_position, MPI_PACKED, _paths[rank][i].at(1), i, comm))
+			MPI_Send(&pack_buffer.front(), pack_position, MPI_PACKED, _paths[rank][i].at(1), 0, comm))
 		!= MPI_SUCCESS) return ret_result; 
 
-		std::cout << "From " << rank << " To " << i << std::endl;
+		//std::cout << "From " << rank << " To " << i << " (" << send_size << " bytes)" << std::endl;
 	}
 
 	int ntimes_to_recieve = size - 1;
@@ -134,46 +140,53 @@ int __stdcall OWN_Alltoall(void* sendbuf, int sendcount, MPI_Datatype sendtype, 
 
 		if (op_flag != 0)
 		{
-			if ((ret_result = MPI_Recv(&pack_buffer.front(), pack_buffer.size(), MPI_PACKED, MPI_ANY_SOURCE, MPI_ANY_TAG, comm, MPI_STATUS_IGNORE)) != MPI_SUCCESS) return ret_result;
+			if ((ret_result = MPI_Recv(&pack_buffer.front(), pack_buffer.size(), MPI_PACKED, MPI_ANY_SOURCE, MPI_ANY_TAG, comm, &recv_status)) != MPI_SUCCESS) return ret_result;
 
-			int data_destination;
+			int data_destination, data_source;
 
 			int pack_position = 0;
 			MPI_Unpack(&pack_buffer.front(), pack_buffer.size(), &pack_position, &data_destination, 1, MPI_INT, comm);
+			MPI_Unpack(&pack_buffer.front(), pack_buffer.size(), &pack_position, &data_source, 1, MPI_INT, comm);
 
 			if (data_destination != rank)
 			{
 				if ((ret_result = 
-					MPI_Send(&pack_buffer.front(), pack_buffer.size(), MPI_PACKED, _paths[rank][data_destination].at(1), data_destination, comm))
+					MPI_Send(&pack_buffer.front(), pack_buffer.size(), MPI_PACKED, _paths[rank][data_destination].at(1), 0, comm))
 				!= MPI_SUCCESS) return ret_result;
 
-				std::cout << "Retranslating from " << rank << " to " << _paths[rank][data_destination].at(1) << " source " << recv_status.MPI_SOURCE <<  " destination " << recv_status.MPI_TAG << std::endl;
+				//std::cout << "Retranslating from " << rank << " to " << _paths[rank][data_destination].at(1) << " source " << data_source <<  " destination " << data_destination << " (" << pack_buffer.size() << " bytes)" << std::endl;
 			}
 			else
 			{
-				int data_source;
+				//int data_source;
 
 				rsize_t recv_size = recvcount * recvtype_size;
-				std::vector<unsigned char> temp_recvbuf(recv_size, 0x00);
+				byte_vector temp_recvbuf(recv_size, 0x00);
 				temp_recvbuf.shrink_to_fit();
 
-				MPI_Unpack(&pack_buffer.front(), pack_buffer.size(), &pack_position, &data_source, 1, MPI_INT, comm);
+				///MPI_Unpack(&pack_buffer.front(), pack_buffer.size(), &pack_position, &data_source, 1, MPI_INT, comm);
 				MPI_Unpack(&pack_buffer.front(), pack_buffer.size(), &pack_position, &temp_recvbuf.front(), temp_recvbuf.size(), recvtype, comm);
 
-				if (memcpy_s(reinterpret_cast<unsigned char*>(recvbuf) + data_source * recv_size, recv_size, &temp_recvbuf.front(), temp_recvbuf.size()) != 0) return OWN_ERROR_INTERNAL;
+				if (memcpy_s(reinterpret_cast<byte_t*>(recvbuf) + data_source * recv_size, recv_size, &temp_recvbuf.front(), temp_recvbuf.size()) != 0) return OWN_ERROR_INTERNAL;
 
-				std::cout << "Recieving data from " << data_source << " at " << rank << " (times to recieve: " << ntimes_to_recieve - 1 << ")" << std::endl;
+				//std::cout << "Recieving data from " << data_source << " at " << rank << " (times to recieve: " << ntimes_to_recieve - 1 << " " << temp_recvbuf.size() << "bytes)" << std::endl;
 				if (--ntimes_to_recieve == 0)
 				{
 					alacv_set(rank);
-					for (int i = 0; i < size; ++i) 
+					//for (int i = 0; i < size; ++i) 
+					//{
+					//	if (i == rank) continue; 
+					//	if ((ret_result = MPI_Send(&rank, 1, MPI_INT, i, 0, _comm_broadcast)) != MPI_SUCCESS) return ret_result;
+					//}
+
+					__foreach(_GRAPH_PATH::iterator, neighbour, _edges[rank])
 					{
-						if (i == rank) continue; 
-						if ((ret_result = MPI_Send(&rank, 1, MPI_INT, i, 0, _comm_broadcast)) != MPI_SUCCESS) return ret_result;
+						if ((ret_result = MPI_Send(&rank, 1, MPI_INT, *neighbour, 0, _comm_broadcast)) != MPI_SUCCESS) return ret_result;
 					}
+
 					alacv_get_nodes(not_ready_nodes, false);
 
-					std::cout << "'Job done' state broadcasting " << rank << std::endl;
+					//std::cout << "'Job done' state broadcasting " << rank << std::endl;
 				}
 			}
 		}
@@ -183,24 +196,31 @@ int __stdcall OWN_Alltoall(void* sendbuf, int sendcount, MPI_Datatype sendtype, 
 		if (op_flag != 0)
 		{
 			int ready_node_rank;
-			if ((ret_result = MPI_Recv(&ready_node_rank, recv_status.count, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, _comm_broadcast, MPI_STATUS_IGNORE)) != MPI_SUCCESS) return ret_result;
+			if ((ret_result = MPI_Recv(&ready_node_rank, recv_status.count, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, _comm_broadcast, &recv_status)) != MPI_SUCCESS) return ret_result;
+
+			__foreach(_GRAPH_PATH::iterator, neighbour, _edges[rank])
+			{
+				if (*neighbour == recv_status.MPI_SOURCE) continue;
+				if ((ret_result = MPI_Send(&ready_node_rank, 1, MPI_INT, *neighbour, 0, _comm_broadcast)) != MPI_SUCCESS) return ret_result;
+			}
 
 			alacv_set(ready_node_rank);
 			alacv_get_nodes(not_ready_nodes, false);
 
-			std::cout << "spinning retranslation cycle at " << rank << " ready node is: " << ready_node_rank;
-			__foreach(std::vector<int>::iterator, entry, not_ready_nodes)
-			{
-				if (entry != not_ready_nodes.begin()) std::cout << ", ";
-				std::cout << *entry;
-			}
-			std::cout << std::endl;
+			//std::cout << "spinning retranslation cycle at " << rank << " ready node is: " << ready_node_rank << " (";
+			//__foreach(std::vector<int>::iterator, entry, not_ready_nodes)
+			//{
+			//	if (entry != not_ready_nodes.begin()) std::cout << ", ";
+			//	std::cout << *entry;
+			//}
+			//std::cout << ")" << std::endl;
 		}
 
 	} while(!not_ready_nodes.empty());
-
+	
 	alacv_release();
 
+	MPI_Barrier(_comm_broadcast);
 	MPI_Comm_free(&_comm_broadcast);
 
 	return ret_result;
