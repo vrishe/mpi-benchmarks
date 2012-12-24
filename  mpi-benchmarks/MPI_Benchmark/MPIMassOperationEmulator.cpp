@@ -20,7 +20,7 @@ static std::size_t _max_flag_count;
 
 #define FLAG_TYPE_BIT_COUNT (sizeof(flag_t) << 3)
 
-inline void alacv_init(int comm_size)
+inline static void alacv_init(int comm_size)
 {
 	_ASSERT(comm_size > 0);
 	_alacrity_vector = alacv_t(comm_size / FLAG_TYPE_BIT_COUNT + 1, 0U);
@@ -28,7 +28,7 @@ inline void alacv_init(int comm_size)
 
 	_max_flag_count = comm_size;
 }
-inline void alacv_release() 
+inline static void alacv_release() 
 { 
 	_alacrity_vector.clear(); 
 	_alacrity_vector.shrink_to_fit(); 
@@ -39,9 +39,9 @@ inline void alacv_release()
 #define __ROTATE_LEFT(x, n)  (((x) << (n)) | ((x) >> ((sizeof(x) << 3)-(n))))
 #define __ROTATE_RIGHT(x, n) (((x) >> (n)) | ((x) << ((sizeof(x) << 3)-(n))))
 
-inline int get_alacv_index(int rank) { return rank / FLAG_TYPE_BIT_COUNT; }
-inline int get_fbit_offset(int rank) { return rank % FLAG_TYPE_BIT_COUNT; }
-inline void alacv_set(int rank)
+inline static int get_alacv_index(int rank) { return rank / FLAG_TYPE_BIT_COUNT; }
+inline static int get_fbit_offset(int rank) { return rank % FLAG_TYPE_BIT_COUNT; }
+inline static void alacv_set(int rank)
 {
 	_ASSERT(rank > 0);	
 
@@ -54,7 +54,7 @@ inline void alacv_set(int rank)
 	_alacrity_vector[index] |= mask;
 }
 
-inline void alacv_unset(int rank)
+inline static void alacv_unset(int rank)
 {
 	_ASSERT(rank > 0);	
 
@@ -67,7 +67,7 @@ inline void alacv_unset(int rank)
 	_alacrity_vector[index] &= mask;
 }
 
-inline void alacv_get_nodes(std::vector<int> &node_set, bool ready)
+inline static void alacv_get_nodes(std::vector<int> &node_set, bool ready)
 {
 	node_set.clear();
 	for(int i = 0, max_i = _alacrity_vector.size(); i < max_i; ++i)
@@ -83,7 +83,6 @@ inline void alacv_get_nodes(std::vector<int> &node_set, bool ready)
 
 // End of internal service code
 // =======================================================================================================================================================================================================================
-
 #define ROOT_RANK 0
 int __stdcall OWN_Alltoall(void* sendbuf, int sendcount, MPI_Datatype sendtype, void* recvbuf, int recvcount, MPI_Datatype recvtype, MPI_Comm comm) {
 	int ret_result = 0;
@@ -102,19 +101,26 @@ int __stdcall OWN_Alltoall(void* sendbuf, int sendcount, MPI_Datatype sendtype, 
 
 	alacv_init(size);
 
-	//std::cout << "Sending essential data @ " << rank << std::endl;
+	rsize_t send_size = sendcount * sendtype_size;
+	std::vector<unsigned char> pack_buffer(send_size + (sizeof(int) << 1), 0x00);
+	pack_buffer.shrink_to_fit();
+
+	int dst_offset = 0;
 	for (int i = 0; i < size; ++i) 
 	{
 		if (i == rank) continue; 
+
+		int pack_position = 0;
+		MPI_Pack(&i, 1, MPI_INT, &pack_buffer.front(), pack_buffer.size(), &pack_position, comm); dst_offset = pack_position;
+		MPI_Pack(&rank, 1, MPI_INT, &pack_buffer.front(), pack_buffer.size(), &pack_position, comm);
+		MPI_Pack(reinterpret_cast<unsigned char*>(sendbuf) + i * send_size, sendcount, sendtype, &pack_buffer.front(), pack_buffer.size(), &pack_position, comm);
+
 		if ((ret_result =
-			MPI_Send(reinterpret_cast<unsigned char*>(sendbuf) + i * sendcount * sendtype_size, sendcount, sendtype, _paths[rank][i].at(1), i, comm))
+			MPI_Send(&pack_buffer.front(), pack_position, MPI_PACKED, _paths[rank][i].at(1), i, comm))
 		!= MPI_SUCCESS) return ret_result; 
 
 		std::cout << "From " << rank << " To " << i << std::endl;
 	}
-
-	std::vector<unsigned char> temp_recvbuf(recvcount * recvtype_size, 0x00);
-	temp_recvbuf.shrink_to_fit();
 
 	int ntimes_to_recieve = size - 1;
 
@@ -128,23 +134,35 @@ int __stdcall OWN_Alltoall(void* sendbuf, int sendcount, MPI_Datatype sendtype, 
 
 		if (op_flag != 0)
 		{
-			//std::cout << "Processing data message @ " << rank << std::endl;
+			if ((ret_result = MPI_Recv(&pack_buffer.front(), pack_buffer.size(), MPI_PACKED, MPI_ANY_SOURCE, MPI_ANY_TAG, comm, MPI_STATUS_IGNORE)) != MPI_SUCCESS) return ret_result;
 
-			if ((ret_result = MPI_Recv(temp_recvbuf.begin()._Ptr, recvcount, recvtype, MPI_ANY_SOURCE, MPI_ANY_TAG, comm, MPI_STATUS_IGNORE)) != MPI_SUCCESS) return ret_result;
-			if (recv_status.MPI_TAG != rank)
+			int data_destination;
+
+			int pack_position = 0;
+			MPI_Unpack(&pack_buffer.front(), pack_buffer.size(), &pack_position, &data_destination, 1, MPI_INT, comm);
+
+			if (data_destination != rank)
 			{
 				if ((ret_result = 
-					MPI_Send(temp_recvbuf.begin()._Ptr, recvcount, recvtype, _paths[rank][recv_status.MPI_TAG].at(1), recv_status.MPI_TAG, comm))
+					MPI_Send(&pack_buffer.front(), pack_buffer.size(), MPI_PACKED, _paths[rank][data_destination].at(1), recv_status.MPI_TAG, comm))
 				!= MPI_SUCCESS) return ret_result;
 
 				std::cout << "Retranslating from " << rank << " to " << _paths[rank][recv_status.MPI_TAG].at(1) << " source " << recv_status.MPI_SOURCE <<  " destination " << recv_status.MPI_TAG << std::endl;
 			}
 			else
 			{
-				rsize_t dst_size = recvcount * recvtype_size;
-				if (memcpy_s(reinterpret_cast<unsigned char*>(recvbuf) + recv_status.MPI_SOURCE * dst_size, dst_size, temp_recvbuf.data(), temp_recvbuf.size()) != 0) return OWN_ERROR_INTERNAL;
+				int data_source;
 
-				std::cout << "Recieving data from " << recv_status.MPI_SOURCE << " at " << rank << " (times to recieve: " << ntimes_to_recieve - 1 << ")" << std::endl;
+				rsize_t recv_size = recvcount * recvtype_size;
+				std::vector<unsigned char> temp_recvbuf(recv_size, 0x00);
+				temp_recvbuf.shrink_to_fit();
+
+				MPI_Unpack(&pack_buffer.front(), pack_buffer.size(), &pack_position, &data_source, 1, MPI_INT, comm);
+				MPI_Unpack(&pack_buffer.front(), pack_buffer.size(), &pack_position, &temp_recvbuf.front(), temp_recvbuf.size(), recvtype, comm);
+
+				if (memcpy_s(reinterpret_cast<unsigned char*>(recvbuf) + data_source * recv_size, recv_size, &temp_recvbuf.front(), temp_recvbuf.size()) != 0) return OWN_ERROR_INTERNAL;
+
+				std::cout << "Recieving data from " << data_source << " at " << rank << " (times to recieve: " << ntimes_to_recieve - 1 << ")" << std::endl;
 				if (--ntimes_to_recieve == 0)
 				{
 					alacv_set(rank);
@@ -164,10 +182,8 @@ int __stdcall OWN_Alltoall(void* sendbuf, int sendcount, MPI_Datatype sendtype, 
 
 		if (op_flag != 0)
 		{
-			//std::cout << "Processing service cycle @ " << rank << std::endl;
-
 			int ready_node_rank;
-			if ((ret_result = MPI_Recv(&ready_node_rank, recv_status.count, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, _comm_broadcast, &recv_status)) != MPI_SUCCESS) return ret_result;
+			if ((ret_result = MPI_Recv(&ready_node_rank, recv_status.count, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, _comm_broadcast, MPI_STATUS_IGNORE)) != MPI_SUCCESS) return ret_result;
 
 			alacv_set(ready_node_rank);
 			alacv_get_nodes(not_ready_nodes, false);
