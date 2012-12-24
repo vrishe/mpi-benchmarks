@@ -133,6 +133,8 @@ int _tmain(int argc, _TCHAR* argv[])
 			std::fill_n(send_buffer, size, rank);
 			std::fill_n(recv_buffer, size, 0x00);
 
+			_tcout << _T("FUUUUUCK!");
+
 			double start_time = MPI_Wtime();
 			if ((error_code = FNC_AllToAll(send_buffer, 1, MPI_INT, recv_buffer, 1, MPI_INT, MPI_Comm_new)) != MPI_SUCCESS)
 			{
@@ -146,6 +148,8 @@ int _tmain(int argc, _TCHAR* argv[])
 
 			delete[] send_buffer;
 			delete[] recv_buffer;
+
+			MPI_Barrier(MPI_Comm_new);
 		}
 	}
 	catch(std::string error_message)
