@@ -154,6 +154,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		_tcout << error_message.begin()._Ptr << std::endl;
 	}
 
+	MPI_Barrier(MPI_COMM_WORLD);
 	return MPI_Finalize();
 }
 

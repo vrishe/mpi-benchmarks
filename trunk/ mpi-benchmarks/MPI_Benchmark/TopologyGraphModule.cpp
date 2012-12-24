@@ -1,7 +1,7 @@
 #include "TopologyGraphModule.h"
 
 void AdjacencyDataConversion(const _GRAPH_EDGES __in &adj, vector<int> __out &index, vector<int> __out &edges) {
-	for (int i = 0, max_i = adj.size(); i < max_i; ++i) {
+	for (std::size_t i = 0, max_i = adj.size(); i < max_i; ++i) {
 		index.push_back(i == 0 ? adj[i].size() : index.back() + adj[i].size());
 		edges.insert(edges.end(), adj[i].begin(), adj[i].end());
 	}
@@ -149,7 +149,7 @@ void TracePath(_GRAPH_EDGES __in edges, int __in from, int __in to, _GRAPH_PATH 
 		return;
 	}
 
-	int n = edges.size();
+	std::size_t n = edges.size();
 	queue < int > s;
 	bool found = false;
 	vector < int > visited(n);
@@ -185,7 +185,7 @@ void TracePath(_GRAPH_EDGES __in edges, int __in from, int __in to, _GRAPH_PATH 
 }
 
 void TraceAllGraphPathes(_GRAPH_EDGES __in edges, _GRAPH_PATHES __out &pathes) {
-	int n = edges.size();
+	std::size_t n = edges.size();
 	pathes.resize(n);
 
 	for (int i = 0; i < n; ++i) {
