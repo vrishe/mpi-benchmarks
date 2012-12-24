@@ -120,12 +120,11 @@ int __stdcall OWN_Alltoall(void* sendbuf, int sendcount, MPI_Datatype sendtype, 
 		}
 
 		int pack_position = 0;
-		MPI_Pack(&i, 1, MPI_INT, &pack_buffer.front(), pack_buffer.size(), &pack_position, comm);
 		MPI_Pack(&rank, 1, MPI_INT, &pack_buffer.front(), pack_buffer.size(), &pack_position, comm);
 		MPI_Pack(reinterpret_cast<byte_t*>(sendbuf) + i * send_size, sendcount, sendtype, &pack_buffer.front(), pack_buffer.size(), &pack_position, comm);
 
 		if ((ret_result =
-			MPI_Send(&pack_buffer.front(), pack_position, MPI_PACKED, _paths[rank][i].at(1), 0, comm))
+			MPI_Send(&pack_buffer.front(), pack_position, MPI_PACKED, _paths[rank][i].at(1), i, comm))
 		!= MPI_SUCCESS) return ret_result; 
 	}
 
@@ -143,20 +142,18 @@ int __stdcall OWN_Alltoall(void* sendbuf, int sendcount, MPI_Datatype sendtype, 
 		{
 			if ((ret_result = MPI_Recv(&pack_buffer.front(), pack_buffer.size(), MPI_PACKED, MPI_ANY_SOURCE, MPI_ANY_TAG, comm, &recv_status)) != MPI_SUCCESS) return ret_result;
 
-			int data_destination, data_source;
-
-			int pack_position = 0;
-			MPI_Unpack(&pack_buffer.front(), pack_buffer.size(), &pack_position, &data_destination, 1, MPI_INT, comm);
-			MPI_Unpack(&pack_buffer.front(), pack_buffer.size(), &pack_position, &data_source, 1, MPI_INT, comm);
-
-			if (data_destination != rank)
+			if (recv_status.MPI_TAG != rank)
 			{
 				if ((ret_result = 
-					MPI_Send(&pack_buffer.front(), pack_buffer.size(), MPI_PACKED, _paths[rank][data_destination].at(1), 0, comm))
+					MPI_Send(&pack_buffer.front(), pack_buffer.size(), MPI_PACKED, _paths[rank][recv_status.MPI_TAG].at(1), recv_status.MPI_TAG, comm))
 				!= MPI_SUCCESS) return ret_result;
 			}
 			else
 			{
+				int data_source;
+
+				int pack_position = 0;
+				MPI_Unpack(&pack_buffer.front(), pack_buffer.size(), &pack_position, &data_source, 1, MPI_INT, comm);
 				MPI_Unpack(&pack_buffer.front(), pack_buffer.size(), &pack_position, reinterpret_cast<byte_t*>(recvbuf) + data_source * recv_size, recvcount, recvtype, comm);
 
 				if (--ntimes_to_recieve == 0)
@@ -165,7 +162,7 @@ int __stdcall OWN_Alltoall(void* sendbuf, int sendcount, MPI_Datatype sendtype, 
 
 					__foreach(_GRAPH_PATH::iterator, neighbour, _edges[rank])
 					{
-						if ((ret_result = MPI_Send(&rank, 1, MPI_INT, *neighbour, 0, _comm_broadcast)) != MPI_SUCCESS) return ret_result;
+						if ((ret_result = MPI_Send(NULL, 0, MPI_INT, *neighbour, rank, _comm_broadcast)) != MPI_SUCCESS) return ret_result;
 					}
 
 					alacv_get_nodes(not_ready_nodes, false);
@@ -177,14 +174,17 @@ int __stdcall OWN_Alltoall(void* sendbuf, int sendcount, MPI_Datatype sendtype, 
 
 		if (op_flag != 0)
 		{
-			int ready_node_rank;
-			if ((ret_result = MPI_Recv(&ready_node_rank, recv_status.count, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, _comm_broadcast, &recv_status)) != MPI_SUCCESS) return ret_result;
+			int ready_node_rank = recv_status.MPI_TAG;
+			if ((ret_result = MPI_Recv(NULL, 0, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, _comm_broadcast, &recv_status)) != MPI_SUCCESS) return ret_result;
+
+			std::vector<int>::iterator last_item = not_ready_nodes.end();
+			if (std::find(not_ready_nodes.begin(), last_item, ready_node_rank) == last_item) continue;
 
 			__foreach(_GRAPH_PATH::iterator, neighbour, _edges[rank])
 			{
 				int neighbour_node = *neighbour;
 				if (neighbour_node == recv_status.MPI_SOURCE || neighbour_node == ready_node_rank) continue;
-				if ((ret_result = MPI_Send(&ready_node_rank, 1, MPI_INT, neighbour_node, 0, _comm_broadcast)) != MPI_SUCCESS) return ret_result;
+				if ((ret_result = MPI_Send(NULL, 0, MPI_INT, neighbour_node, ready_node_rank, _comm_broadcast)) != MPI_SUCCESS) return ret_result;
 			}
 
 			alacv_set(ready_node_rank);
