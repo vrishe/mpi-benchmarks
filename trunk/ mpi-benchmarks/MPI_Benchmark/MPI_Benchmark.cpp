@@ -21,8 +21,10 @@ _GRAPH_PATHES	_paths;
 
 #define TOPOLOGY_DEFAULT TOPOLOGY_UNKNOWN
 #define MODE_DEFAULT	 MODE_LIB
+#define REPS_UNKNOWN	 (0)
+#define REPS_DEFAULT	 (1)
 
-_TOPOLOGY test_topology_arg(_TCHAR *arg, std::size_t n_chars)
+inline static _TOPOLOGY test_topology_arg(_TCHAR *arg, std::size_t n_chars)
 {
 	_TOPOLOGY topology = TOPOLOGY_UNKNOWN;
 	if (arg != NULL)
@@ -44,7 +46,7 @@ _TOPOLOGY test_topology_arg(_TCHAR *arg, std::size_t n_chars)
 	return topology;
 }
 
-int test_mode_arg(_TCHAR *arg, std::size_t n_chars)
+inline static int test_mode_arg(_TCHAR *arg)
 {
 	int mode = MODE_UNKNOWN;
 	if (arg != NULL)
@@ -52,8 +54,26 @@ int test_mode_arg(_TCHAR *arg, std::size_t n_chars)
 		_TCHAR *mode_id[] = { _T("own"), _T("o"), _T("lib"), _T("l") };
 		bool error_state = *arg != '/';
 
-		if      (_tcscmp(mode_id[0], arg + 1) == 0 || _tcscmp(mode_id[1], arg + 1) == 0) mode = MODE_OWN;
-		else if (_tcscmp(mode_id[2], arg + 1) == 0 || _tcscmp(mode_id[3], arg + 1) == 0) mode = MODE_LIB;
+		if (!error_state)
+		{
+			if      (_tcscmp(mode_id[0], arg + 1) == 0 || _tcscmp(mode_id[1], arg + 1) == 0) mode = MODE_OWN;
+			else if (_tcscmp(mode_id[2], arg + 1) == 0 || _tcscmp(mode_id[3], arg + 1) == 0) mode = MODE_LIB;
+		}
+	}
+	return mode;
+}
+
+inline static int test_reps_arg(_TCHAR *arg, std::size_t n_chars)
+{
+	int mode = REPS_UNKNOWN;
+	if (arg != NULL)
+	{
+		_TCHAR *reps_id[] = { _T("c") };
+
+		std::size_t reps_id_len = 0;
+		bool error_state = *arg != '-' || (_tcsncmp(reps_id[0], arg + 1, reps_id_len = min(_tcslen(reps_id[0]), n_chars - 2)) != 0) || *(arg + (++reps_id_len)++) != _T(':');
+
+		if (!error_state) mode = _ttoi(arg + reps_id_len);
 	}
 	return mode;
 }
@@ -62,28 +82,26 @@ typedef int (__stdcall *INTERCHANGER) (void *sendbuf, int sendcount, MPI_Datatyp
 
 int _tmain(int argc, _TCHAR* argv[])
 {
-	//_TOPOLOGY topology2 = TOPOLOGY_GRID;
-	//GenerateTopologyGraph(9, topology2, _edges);
-	//TraceAllGraphPathes(_edges, _paths);
-
 	int size = 0,
 		rank = -1;
 
 	try {
-		_TOPOLOGY topology = TOPOLOGY_UNKNOWN;
-		int       mode     = MODE_DEFAULT;
+		_TOPOLOGY topology	= TOPOLOGY_DEFAULT;
+		int       mode		= MODE_DEFAULT;
+		int       reps		= REPS_DEFAULT;
 
 		for (size_t i = 1, max_i = static_cast<size_t>(argc); i < max_i; ++i)
 		{
 			size_t argv_str_len = _tcslen(argv[i]);
 			for (std::size_t j = 0; j < argv_str_len; ++j) argv[i][j] = _totlower(argv[i][j]);
 
-			if (topology == TOPOLOGY_UNKNOWN) { topology = test_topology_arg(argv[i], argv_str_len); continue; }
-			if (mode     == MODE_DEFAULT)     { mode     = test_mode_arg(argv[i], argv_str_len);     continue; }
+			if (topology == TOPOLOGY_DEFAULT) { _TOPOLOGY topology_param = test_topology_arg(argv[i], argv_str_len); if (topology_param != TOPOLOGY_UNKNOWN) { topology = topology_param; continue; } }
+			if (mode     == MODE_DEFAULT)     { int       mode_param	 = test_mode_arg(argv[i]);					 if (mode_param != MODE_UNKNOWN)		 { mode = mode_param; continue; } }
+			if (reps	 == REPS_DEFAULT)	  { int		  reps_param	 = test_reps_arg(argv[i], argv_str_len);	 if (reps_param > REPS_UNKNOWN)			 { reps = reps_param; continue; } }
 
 			throw std::string("Unknown parameter: ").append(argv[i]);
 		}
-		if (topology == TOPOLOGY_UNKNOWN || mode == MODE_UNKNOWN) {	throw std::string("Program parameters are wrong!");	}
+		if (topology == TOPOLOGY_UNKNOWN || mode == MODE_UNKNOWN || reps <= REPS_UNKNOWN) {	throw std::string("Program parameters are wrong!");	}
 
 		MPI_Datatype error_code = 0;
 		if ((error_code = MPI_Init(&argc, &argv)) != MPI_SUCCESS) { throw std::string("There was a problem with MPI initialization!"); }
@@ -138,7 +156,7 @@ int _tmain(int argc, _TCHAR* argv[])
 			std::fill_n(recv_buffer, size, 0x00);
 
 			double start_time = MPI_Wtime();
-			for (int i = 0; i < 1; ++i) 
+			for (int i = 0; i < reps; ++i) 
 			{
 				if ((error_code = FNC_AllToAll(send_buffer, 1, MPI_INT, recv_buffer, 1, MPI_INT, MPI_Comm_new)) != MPI_SUCCESS)
 				{
