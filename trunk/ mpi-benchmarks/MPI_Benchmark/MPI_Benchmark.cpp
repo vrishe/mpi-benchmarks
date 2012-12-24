@@ -133,14 +133,16 @@ int _tmain(int argc, _TCHAR* argv[])
 			std::fill_n(send_buffer, size, rank);
 			std::fill_n(recv_buffer, size, 0x00);
 
+			double start_time = MPI_Wtime();
 			if ((error_code = FNC_AllToAll(send_buffer, 1, MPI_INT, recv_buffer, 1, MPI_INT, MPI_Comm_new)) != MPI_SUCCESS)
 			{
 				throw std::string("Failed to complete All-to-All transmission!");
 			}
+			double end_time = MPI_Wtime();
 
 			_tcout << _T("Process #") << rank << _T(":");
 			for (int i = 0; i < size; ++i) _tcout << " " << recv_buffer[i];
-			_tcout << std::endl;
+			_tcout << std::endl << "From " << start_time << " to " << end_time << std::endl;
 
 			delete[] send_buffer;
 			delete[] recv_buffer;
