@@ -104,8 +104,12 @@ int __stdcall OWN_Alltoall(void* sendbuf, int sendcount, MPI_Datatype sendtype, 
 
 	alacv_init(size);
 
-	rsize_t send_size = sendcount * sendtype_size;
-	byte_vector pack_buffer(send_size + (sizeof(int) << 1), 0x00);
+	rsize_t send_size = sendcount * sendtype_size,
+			recv_size = recvcount * recvtype_size;
+
+	int mpi_int_type_size;
+	MPI_Type_size(MPI_INT, &mpi_int_type_size);
+	byte_vector pack_buffer(send_size + (mpi_int_type_size << 1), 0x00);
 	pack_buffer.shrink_to_fit();
 
 	for (int i = 0; i < size; ++i) 
@@ -158,15 +162,9 @@ int __stdcall OWN_Alltoall(void* sendbuf, int sendcount, MPI_Datatype sendtype, 
 			}
 			else
 			{
-				//int data_source;
+				MPI_Unpack(&pack_buffer.front(), pack_buffer.size(), &pack_position, reinterpret_cast<byte_t*>(recvbuf) + data_source * recv_size, recvcount, recvtype, comm);
 
-				rsize_t recv_size = recvcount * recvtype_size;
-				byte_vector temp_recvbuf(recv_size, 0x00);
-				temp_recvbuf.shrink_to_fit();
-
-				MPI_Unpack(&pack_buffer.front(), pack_buffer.size(), &pack_position, &temp_recvbuf.front(), temp_recvbuf.size(), recvtype, comm);
-
-				if (memcpy_s(reinterpret_cast<byte_t*>(recvbuf) + data_source * recv_size, recv_size, &temp_recvbuf.front(), temp_recvbuf.size()) != 0) return OWN_ERROR_INTERNAL;
+				//if (memcpy_s(reinterpret_cast<byte_t*>(recvbuf) + data_source * recv_size, recv_size, &temp_recvbuf.front(), temp_recvbuf.size()) != 0) return OWN_ERROR_INTERNAL;
 
 				//std::cout << "Recieving data from " << data_source << " at " << rank << " (times to recieve: " << ntimes_to_recieve - 1 << " " << temp_recvbuf.size() << "bytes)" << std::endl;
 				if (--ntimes_to_recieve == 0)
