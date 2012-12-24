@@ -140,20 +140,23 @@ int _tmain(int argc, _TCHAR* argv[])
 
 		if (FNC_AllToAll != NULL)
 		{	
-			//unsigned char *local_buffer = new unsigned char[size];
-			char send_buffer[] = "Hello, World!";
-			char recv_buffer[_countof(send_buffer)] = { 0x00 };
+			int *send_buffer = new int[size],
+				*recv_buffer = new int[size];
 
-			//memset(recv_buffer, 0x00, _countof(recv_buffer));
+			std::fill_n(send_buffer, size, rank);
+			memset(recv_buffer, 0x00, size * sizeof(int));
 
-			if ((error_code =FNC_AllToAll(send_buffer, 1, MPI_CHAR, recv_buffer, 1, MPI_CHAR, MPI_Comm_new)) != MPI_SUCCESS)
+			if ((error_code = FNC_AllToAll(send_buffer, 1, MPI_INT, recv_buffer, 1, MPI_INT, MPI_Comm_new)) != MPI_SUCCESS)
 			{
 				throw std::string("Failed to complete All-to-All transmission!");
 			}
 
-			//delete[] local_buffer;
+			_tcout << _T("Process #") << rank << _T(":");
+			for (int i = 0; i < size; ++i) _tcout << " " << recv_buffer[i];
+			_tcout << std::endl;
 
-			_tcout << _T("Process #") << rank << _T(": ") << recv_buffer << std::endl;
+			delete[] send_buffer;
+			delete[] recv_buffer;
 		}
 	}
 	catch(std::string error_message)
