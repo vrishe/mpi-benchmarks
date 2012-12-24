@@ -199,8 +199,9 @@ int __stdcall OWN_Alltoall(void* sendbuf, int sendcount, MPI_Datatype sendtype, 
 
 			__foreach(_GRAPH_PATH::iterator, neighbour, _edges[rank])
 			{
-				if (*neighbour == recv_status.MPI_SOURCE || *neighbour == ready_node_rank) continue;
-				if ((ret_result = MPI_Send(&ready_node_rank, 1, MPI_INT, *neighbour, 0, _comm_broadcast)) != MPI_SUCCESS) return ret_result;
+				int neighbour_node = *neighbour;
+				if (neighbour_node == recv_status.MPI_SOURCE || neighbour_node == ready_node_rank) continue;
+				if ((ret_result = MPI_Send(&ready_node_rank, 1, MPI_INT, neighbour_node, 0, _comm_broadcast)) != MPI_SUCCESS) return ret_result;
 			}
 
 			alacv_set(ready_node_rank);
