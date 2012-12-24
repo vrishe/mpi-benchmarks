@@ -125,7 +125,7 @@ int __stdcall OWN_Alltoall(void* sendbuf, int sendcount, MPI_Datatype sendtype, 
 			MPI_Send(&pack_buffer.front(), pack_position, MPI_PACKED, _paths[rank][i].at(1), 0, comm))
 		!= MPI_SUCCESS) return ret_result; 
 
-		//std::cout << "From " << rank << " To " << i << " (" << send_size << " bytes)" << std::endl;
+		std::cout << "From " << rank << " To " << i << " (" << send_size << " bytes)" << std::endl;
 	}
 
 	int ntimes_to_recieve = size - 1;
@@ -154,7 +154,7 @@ int __stdcall OWN_Alltoall(void* sendbuf, int sendcount, MPI_Datatype sendtype, 
 					MPI_Send(&pack_buffer.front(), pack_buffer.size(), MPI_PACKED, _paths[rank][data_destination].at(1), 0, comm))
 				!= MPI_SUCCESS) return ret_result;
 
-				//std::cout << "Retranslating from " << rank << " to " << _paths[rank][data_destination].at(1) << " source " << data_source <<  " destination " << data_destination << " (" << pack_buffer.size() << " bytes)" << std::endl;
+				std::cout << "Retranslating from " << rank << " to " << _paths[rank][data_destination].at(1) << " source " << data_source <<  " destination " << data_destination << " (" << pack_buffer.size() << " bytes)" << std::endl;
 			}
 			else
 			{
@@ -199,7 +199,7 @@ int __stdcall OWN_Alltoall(void* sendbuf, int sendcount, MPI_Datatype sendtype, 
 
 			__foreach(_GRAPH_PATH::iterator, neighbour, _edges[rank])
 			{
-				if (*neighbour == recv_status.MPI_SOURCE) continue;
+				if (*neighbour == recv_status.MPI_SOURCE || *neighbour == ready_node_rank) continue;
 				if ((ret_result = MPI_Send(&ready_node_rank, 1, MPI_INT, *neighbour, 0, _comm_broadcast)) != MPI_SUCCESS) return ret_result;
 			}
 
