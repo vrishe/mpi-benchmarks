@@ -134,9 +134,12 @@ int _tmain(int argc, _TCHAR* argv[])
 			std::fill_n(recv_buffer, size, 0x00);
 
 			double start_time = MPI_Wtime();
-			if ((error_code = FNC_AllToAll(send_buffer, 1, MPI_INT, recv_buffer, 1, MPI_INT, MPI_Comm_new)) != MPI_SUCCESS)
+			for (int i = 0; i < 1; ++i) 
 			{
-				throw std::string("Failed to complete All-to-All transmission!");
+				if ((error_code = FNC_AllToAll(send_buffer, 1, MPI_INT, recv_buffer, 1, MPI_INT, MPI_Comm_new)) != MPI_SUCCESS)
+				{
+					throw std::string("Failed to complete All-to-All transmission!");
+				}
 			}
 			double end_time = MPI_Wtime();
 
