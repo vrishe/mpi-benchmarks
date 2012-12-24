@@ -219,6 +219,7 @@ int __stdcall OWN_Alltoall(void* sendbuf, int sendcount, MPI_Datatype sendtype, 
 	
 	alacv_release();
 
+	MPI_Barrier(comm);
 	MPI_Comm_free(&_comm_broadcast);
 
 	return ret_result;
