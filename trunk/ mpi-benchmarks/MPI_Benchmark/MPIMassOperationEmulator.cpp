@@ -144,10 +144,10 @@ int __stdcall OWN_Alltoall(void* sendbuf, int sendcount, MPI_Datatype sendtype, 
 			if (data_destination != rank)
 			{
 				if ((ret_result = 
-					MPI_Send(&pack_buffer.front(), pack_buffer.size(), MPI_PACKED, _paths[rank][data_destination].at(1), recv_status.MPI_TAG, comm))
+					MPI_Send(&pack_buffer.front(), pack_buffer.size(), MPI_PACKED, _paths[rank][data_destination].at(1), data_destination, comm))
 				!= MPI_SUCCESS) return ret_result;
 
-				std::cout << "Retranslating from " << rank << " to " << _paths[rank][recv_status.MPI_TAG].at(1) << " source " << recv_status.MPI_SOURCE <<  " destination " << recv_status.MPI_TAG << std::endl;
+				std::cout << "Retranslating from " << rank << " to " << _paths[rank][data_destination].at(1) << " source " << recv_status.MPI_SOURCE <<  " destination " << recv_status.MPI_TAG << std::endl;
 			}
 			else
 			{
