@@ -28,13 +28,13 @@ int GenerateTopologyGraph(int __in n, _TOPOLOGY __in topology, _GRAPH_EDGES __ou
 	}
 
 	case TOPOLOGY_GRID: {
-		if (n < 5 && n % 2 != 0)
+		if (n < 4)
 			return -1;
 
-		int height	= 2,
-			width	= n / 2;
+		int height	= 1,
+			width	= n;
 
-		// Finging optimal grid sides
+		// Finding optimal grid sides
 		for (i = height + 1; i < width; ++i) {
 			if (n % i == 0) {
 				height	= i;
@@ -43,8 +43,8 @@ int GenerateTopologyGraph(int __in n, _TOPOLOGY __in topology, _GRAPH_EDGES __ou
 		}
 
 		for (i = 0; i < height * width; ++i) {
-			if ((i - 1 >= width * (i / width)) && (i - 1 < i))		edges[i].push_back(i - 1);
-			if (i - width < i)										edges[i].push_back(i - width);
+			if ((i - 1 >= width * (i / width)) && (i - 1 >= 0))		edges[i].push_back(i - 1);
+			if (i - width >= 0)										edges[i].push_back(i - width);
 			if ((i + 1 < width * (i / width + 1)) && (i + 1 > i))	edges[i].push_back(i + 1);	
 			if ((i + width < n) && (i + width > i))					edges[i].push_back(i + width);
 		}
@@ -72,7 +72,7 @@ int GenerateTopologyGraph(int __in n, _TOPOLOGY __in topology, _GRAPH_EDGES __ou
 
 		edges[3].push_back(0);
 		edges[3].push_back(2);
-		edges[3].push_back(4);
+		edges[3].push_back(7);
 		edges[3].push_back(11);
 		
 		edges[4].push_back(5);
@@ -161,11 +161,12 @@ void TracePath(_GRAPH_EDGES __in edges, int __in from, int __in to, _GRAPH_PATH 
 	while (!s.empty() && !found) {
 		int cur = s.front();
 		
-		for each (int node in edges.at(cur)) {
-			if (visited.at(node) == -1) {
-				visited[node] = cur;
-				s.push(node);
-				if (node == to) {
+		__foreach (_GRAPH_PATH::iterator, node, edges[cur]) {
+			int value = *node;
+			if (visited.at(value) == -1) {
+				visited[value] = cur;
+				s.push(value);
+				if (value == to) {
 					found = true;
 					break;
 				}

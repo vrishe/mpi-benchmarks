@@ -62,6 +62,10 @@ typedef int (__stdcall *INTERCHANGER) (void *sendbuf, int sendcount, MPI_Datatyp
 
 int _tmain(int argc, _TCHAR* argv[])
 {
+	//_TOPOLOGY topology2 = TOPOLOGY_GRID;
+	//GenerateTopologyGraph(9, topology2, _edges);
+	//TraceAllGraphPathes(_edges, _paths);
+
 	int size = 0,
 		rank = -1;
 

@@ -18,3 +18,5 @@ using namespace std;
 
 // TODO: Установите здесь ссылки на дополнительные заголовки, требующиеся для программы
 #include "mpi.h"
+
+#define __foreach(it, i, c) for(it i = c.begin(), _end_##i = c.end(); i != _end_##i; ++i)
