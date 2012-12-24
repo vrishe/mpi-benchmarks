@@ -70,10 +70,10 @@ inline static void alacv_unset(int rank)
 inline static void alacv_get_nodes(std::vector<int> &node_set, bool ready)
 {
 	node_set.clear();
-	for(int i = 0, max_i = _alacrity_vector.size(); i < max_i; ++i)
+	for(std::size_t i = 0, max_i = _alacrity_vector.size(); i < max_i; ++i)
 	{
 		flag_t flag_block = _alacrity_vector[i];
-		for (int j = 0, max_j = min(_max_flag_count, FLAG_TYPE_BIT_COUNT); j < max_j; ++j)
+		for (std::size_t j = 0, max_j = min(_max_flag_count, FLAG_TYPE_BIT_COUNT); j < max_j; ++j)
 		{
 			if ((flag_block & (__ROTATE_LEFT(1, j))) == static_cast<unsigned int>(ready)) node_set.push_back(i * FLAG_TYPE_BIT_COUNT + j);
 		}
@@ -164,7 +164,6 @@ int __stdcall OWN_Alltoall(void* sendbuf, int sendcount, MPI_Datatype sendtype, 
 				byte_vector temp_recvbuf(recv_size, 0x00);
 				temp_recvbuf.shrink_to_fit();
 
-				///MPI_Unpack(&pack_buffer.front(), pack_buffer.size(), &pack_position, &data_source, 1, MPI_INT, comm);
 				MPI_Unpack(&pack_buffer.front(), pack_buffer.size(), &pack_position, &temp_recvbuf.front(), temp_recvbuf.size(), recvtype, comm);
 
 				if (memcpy_s(reinterpret_cast<byte_t*>(recvbuf) + data_source * recv_size, recv_size, &temp_recvbuf.front(), temp_recvbuf.size()) != 0) return OWN_ERROR_INTERNAL;
@@ -220,7 +219,6 @@ int __stdcall OWN_Alltoall(void* sendbuf, int sendcount, MPI_Datatype sendtype, 
 	
 	alacv_release();
 
-	MPI_Barrier(_comm_broadcast);
 	MPI_Comm_free(&_comm_broadcast);
 
 	return ret_result;
