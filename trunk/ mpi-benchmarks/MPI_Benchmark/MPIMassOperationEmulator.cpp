@@ -128,8 +128,6 @@ int __stdcall OWN_Alltoall(void* sendbuf, int sendcount, MPI_Datatype sendtype, 
 		if ((ret_result =
 			MPI_Send(&pack_buffer.front(), pack_position, MPI_PACKED, _paths[rank][i].at(1), 0, comm))
 		!= MPI_SUCCESS) return ret_result; 
-
-		std::cout << "From " << rank << " To " << i << " (" << send_size << " bytes)" << std::endl;
 	}
 
 	int ntimes_to_recieve = size - 1;
@@ -157,24 +155,14 @@ int __stdcall OWN_Alltoall(void* sendbuf, int sendcount, MPI_Datatype sendtype, 
 				if ((ret_result = 
 					MPI_Send(&pack_buffer.front(), pack_buffer.size(), MPI_PACKED, _paths[rank][data_destination].at(1), 0, comm))
 				!= MPI_SUCCESS) return ret_result;
-
-				std::cout << "Retranslating from " << rank << " to " << _paths[rank][data_destination].at(1) << " source " << data_source <<  " destination " << data_destination << " (" << pack_buffer.size() << " bytes)" << std::endl;
 			}
 			else
 			{
 				MPI_Unpack(&pack_buffer.front(), pack_buffer.size(), &pack_position, reinterpret_cast<byte_t*>(recvbuf) + data_source * recv_size, recvcount, recvtype, comm);
 
-				//if (memcpy_s(reinterpret_cast<byte_t*>(recvbuf) + data_source * recv_size, recv_size, &temp_recvbuf.front(), temp_recvbuf.size()) != 0) return OWN_ERROR_INTERNAL;
-
-				//std::cout << "Recieving data from " << data_source << " at " << rank << " (times to recieve: " << ntimes_to_recieve - 1 << " " << temp_recvbuf.size() << "bytes)" << std::endl;
 				if (--ntimes_to_recieve == 0)
 				{
 					alacv_set(rank);
-					//for (int i = 0; i < size; ++i) 
-					//{
-					//	if (i == rank) continue; 
-					//	if ((ret_result = MPI_Send(&rank, 1, MPI_INT, i, 0, _comm_broadcast)) != MPI_SUCCESS) return ret_result;
-					//}
 
 					__foreach(_GRAPH_PATH::iterator, neighbour, _edges[rank])
 					{
@@ -182,8 +170,6 @@ int __stdcall OWN_Alltoall(void* sendbuf, int sendcount, MPI_Datatype sendtype, 
 					}
 
 					alacv_get_nodes(not_ready_nodes, false);
-
-					//std::cout << "'Job done' state broadcasting " << rank << std::endl;
 				}
 			}
 		}
@@ -204,14 +190,6 @@ int __stdcall OWN_Alltoall(void* sendbuf, int sendcount, MPI_Datatype sendtype, 
 
 			alacv_set(ready_node_rank);
 			alacv_get_nodes(not_ready_nodes, false);
-
-			//std::cout << "spinning retranslation cycle at " << rank << " ready node is: " << ready_node_rank << " (";
-			//__foreach(std::vector<int>::iterator, entry, not_ready_nodes)
-			//{
-			//	if (entry != not_ready_nodes.begin()) std::cout << ", ";
-			//	std::cout << *entry;
-			//}
-			//std::cout << ")" << std::endl;
 		}
 
 	} while(!not_ready_nodes.empty());
