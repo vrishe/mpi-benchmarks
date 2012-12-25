@@ -126,6 +126,8 @@ int _tmain(int argc, _TCHAR* argv[])
 				TraceAllGraphPathes(_edges, _paths);
 
 				MPI_Barrier(MPI_COMM_WORLD);
+
+				_tcout << time(NULL) << " @ process: " << rank << std::endl;
 			}
 			break;
 
@@ -147,7 +149,7 @@ int _tmain(int argc, _TCHAR* argv[])
 			break;
 		}
 
-		if (FNC_AllToAll != NULL)
+		if (FNC_AllToAll == NULL) // !=
 		{	
 			int *send_buffer = new int[size],
 				*recv_buffer = new int[size];
