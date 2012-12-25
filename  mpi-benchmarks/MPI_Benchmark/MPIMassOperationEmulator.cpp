@@ -66,6 +66,46 @@ inline static void alacv_unset(int rank)
 	_alacrity_vector[index] &= mask;
 }
 
+inline static bool alacv_state(int rank)
+{
+	_ASSERT(rank > 0);
+
+	int index  = get_alacv_index(rank),
+		offset = get_fbit_offset(rank);
+
+	_ASSERT(index < static_cast<int>(_alacrity_vector.size()) && offset < FLAG_TYPE_BIT_COUNT);
+
+	return static_cast<bool>(_alacrity_vector[index] & static_cast<flag_t>(__ROTATE_LEFT(1, offset)));
+}
+
+inline static bool alacv_state_global(bool ready)
+{
+	for(std::size_t i = 0, max_i = _alacrity_vector.size(); i < max_i; ++i)
+	{
+		flag_t flag_block = _alacrity_vector[i];
+		for (std::size_t j = 0, max_j = min(_max_flag_count, FLAG_TYPE_BIT_COUNT); j < max_j; ++j)
+		{
+			if ((flag_block & static_cast<flag_t>(__ROTATE_LEFT(1, j))) != static_cast<unsigned int>(ready)) return false;
+		}
+	}
+	
+	return true;
+}
+
+inline static bool alacv_state_several(bool ready)
+{
+	int in_state_count = 0;
+	for(std::size_t i = 0, max_i = _alacrity_vector.size(); i < max_i; ++i)
+	{
+		flag_t flag_block = _alacrity_vector[i];
+		for (std::size_t j = 0, max_j = min(_max_flag_count, FLAG_TYPE_BIT_COUNT); j < max_j; ++j)
+		{
+			if ((flag_block & static_cast<flag_t>(__ROTATE_LEFT(1, j))) == static_cast<unsigned int>(ready)) ++in_state_count;
+		}
+	}
+	return in_state_count != 0;
+}
+
 inline static void alacv_get_nodes(std::vector<int> &node_set, bool ready)
 {
 	node_set.clear();
@@ -82,12 +122,69 @@ inline static void alacv_get_nodes(std::vector<int> &node_set, bool ready)
 
 // End of internal service code
 // =======================================================================================================================================================================================================================
+#define OWN_SERVICE_TAG INT_MAX
+int __stdcall OWN_Barrier(MPI_Comm comm)
+{
+	int ret_result = MPI_SUCCESS;
+	
+	int current_node_rank, comm_size;
+	if ((ret_result = MPI_Comm_size(comm, &comm_size)) != MPI_SUCCESS) return ret_result; 
+	if ((ret_result = MPI_Comm_rank(comm, &current_node_rank)) != MPI_SUCCESS) return ret_result;
+
+	alacv_init(comm_size);
+
+	alacv_set(current_node_rank);
+	__foreach(_GRAPH_PATH::iterator, neighbour, _edges[current_node_rank])
+	{
+		if ((ret_result = MPI_Send(&current_node_rank, 1, MPI_INT, *neighbour, OWN_SERVICE_TAG, comm)) != MPI_SUCCESS) return ret_result;
+	}
+
+	int op_flag;
+	MPI_Status recv_status;
+
+	do {
+		if ((ret_result = MPI_Iprobe(MPI_ANY_SOURCE, OWN_SERVICE_TAG, comm, &op_flag, &recv_status)) != MPI_SUCCESS) return ret_result;
+
+		if (op_flag != 0)
+		{	
+			int ready_node_rank = 0;
+			if ((ret_result = MPI_Recv(&ready_node_rank, 1, MPI_INT, MPI_ANY_SOURCE, OWN_SERVICE_TAG, comm, &recv_status)) != MPI_SUCCESS) return ret_result;
+
+			if (alacv_state(ready_node_rank)) continue;
+			
+			__foreach(_GRAPH_PATH::iterator, neighbour, _edges[current_node_rank])
+			{
+				int neighbour_node = *neighbour;
+				if (neighbour_node == recv_status.MPI_SOURCE || neighbour_node == ready_node_rank) continue;
+				if ((ret_result = MPI_Send(&ready_node_rank, 1, MPI_INT, neighbour_node, OWN_SERVICE_TAG, comm)) != MPI_SUCCESS) return ret_result;
+			}
+
+			alacv_set(ready_node_rank);
+		}		
+	} while(alacv_state_several(false));
+
+	do {
+		if ((ret_result = MPI_Iprobe(MPI_ANY_SOURCE, OWN_SERVICE_TAG, comm, &op_flag, &recv_status)) != MPI_SUCCESS) return ret_result;
+
+		if (op_flag != 0)
+		{
+			int dummy_value;
+			if ((ret_result = MPI_Recv(&dummy_value, 1, MPI_INT, MPI_ANY_SOURCE, OWN_SERVICE_TAG, comm, &recv_status)) != MPI_SUCCESS) return ret_result;
+			continue;
+		}
+		break;
+	} while(true);
+
+	alacv_release();
+	return ret_result;
+}
+
 typedef unsigned char byte_t;
 typedef std::vector<byte_t> byte_vector;
 
 #define ROOT_RANK 0
 int __stdcall OWN_Alltoall(void* sendbuf, int sendcount, MPI_Datatype sendtype, void* recvbuf, int recvcount, MPI_Datatype recvtype, MPI_Comm comm) {
-	int ret_result = 0;
+	int ret_result = MPI_SUCCESS;
 	
 	int rank, size;
 	if ((ret_result = MPI_Comm_size(comm, &size)) != MPI_SUCCESS) return ret_result; 
@@ -129,13 +226,13 @@ int __stdcall OWN_Alltoall(void* sendbuf, int sendcount, MPI_Datatype sendtype, 
 	}
 
 	int ntimes_to_recieve = size - 1;
+	
+	int op_flag;
+	MPI_Status recv_status;
 
-	std::vector<int> not_ready_nodes;
-	alacv_get_nodes(not_ready_nodes, false);
+	//std::vector<int> not_ready_nodes;
+	//alacv_get_nodes(not_ready_nodes, false);
 	do {
-		int op_flag;
-
-		MPI_Status recv_status;
 		if ((ret_result = MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, comm, &op_flag, &recv_status)) != MPI_SUCCESS) return ret_result;
 
 		if (op_flag != 0)
@@ -158,14 +255,12 @@ int __stdcall OWN_Alltoall(void* sendbuf, int sendcount, MPI_Datatype sendtype, 
 
 				if (--ntimes_to_recieve == 0)
 				{
-					alacv_set(rank);
-
 					__foreach(_GRAPH_PATH::iterator, neighbour, _edges[rank])
 					{
 						if ((ret_result = MPI_Send(NULL, 0, MPI_INT, *neighbour, rank, _comm_broadcast)) != MPI_SUCCESS) return ret_result;
 					}
 
-					alacv_get_nodes(not_ready_nodes, false);
+					alacv_set(rank);
 				}
 			}
 		}
@@ -174,11 +269,12 @@ int __stdcall OWN_Alltoall(void* sendbuf, int sendcount, MPI_Datatype sendtype, 
 
 		if (op_flag != 0)
 		{
-			int ready_node_rank = recv_status.MPI_TAG;
 			if ((ret_result = MPI_Recv(NULL, 0, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, _comm_broadcast, &recv_status)) != MPI_SUCCESS) return ret_result;
 
-			std::vector<int>::iterator last_item = not_ready_nodes.end();
-			if (std::find(not_ready_nodes.begin(), last_item, ready_node_rank) == last_item) continue;
+			int ready_node_rank = recv_status.MPI_TAG;
+			if (alacv_state(ready_node_rank)) continue;
+			//std::vector<int>::iterator last_item = not_ready_nodes.end();
+			//if (std::find(not_ready_nodes.begin(), last_item, ready_node_rank) == last_item) continue;
 
 			__foreach(_GRAPH_PATH::iterator, neighbour, _edges[rank])
 			{
@@ -188,14 +284,24 @@ int __stdcall OWN_Alltoall(void* sendbuf, int sendcount, MPI_Datatype sendtype, 
 			}
 
 			alacv_set(ready_node_rank);
-			alacv_get_nodes(not_ready_nodes, false);
+			//alacv_get_nodes(not_ready_nodes, false);
 		}
 
-	} while(!not_ready_nodes.empty());
+	} while(alacv_state_several(false));
 	
+	do {
+		if ((ret_result = MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, _comm_broadcast, &op_flag, &recv_status)) != MPI_SUCCESS) return ret_result;
+		if (op_flag != 0)
+		{
+			if ((ret_result = MPI_Recv(NULL, 0, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, _comm_broadcast, &recv_status)) != MPI_SUCCESS) return ret_result;
+			continue;
+		}
+		break;
+	} while(true);
+
 	alacv_release();
 
-	MPI_Barrier(comm);
+	//MPI_Barrier(comm);
 	MPI_Comm_free(&_comm_broadcast);
 
 	return ret_result;
