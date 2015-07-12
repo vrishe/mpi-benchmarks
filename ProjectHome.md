@@ -1,0 +1,1 @@
+Academic project that completes an individual task for claster computations with MPI
